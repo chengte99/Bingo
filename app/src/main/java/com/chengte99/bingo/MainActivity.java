@@ -3,12 +3,14 @@ package com.chengte99.bingo;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.constraintlayout.widget.Group;
 
 import android.content.DialogInterface;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -16,6 +18,7 @@ import android.widget.TextView;
 import com.firebase.ui.auth.AuthUI;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.DataSnapshot;
@@ -25,13 +28,16 @@ import com.google.firebase.database.ValueEventListener;
 
 import java.util.Arrays;
 
-public class MainActivity extends AppCompatActivity implements FirebaseAuth.AuthStateListener {
+public class MainActivity extends AppCompatActivity implements FirebaseAuth.AuthStateListener, View.OnClickListener {
 
     private static final String TAG = MainActivity.class.getSimpleName();
     private static final int RC_LOGIN = 100;
     private FirebaseAuth auth;
     private TextView nickText;
     private ImageView avatar;
+    private Group groupAvatars;
+    int[] avatarIds = {R.drawable.avatar_0, R.drawable.avatar_1, R.drawable.avatar_2, R.drawable.avatar_3, R.drawable.avatar_4};
+    private Member member;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -45,6 +51,50 @@ public class MainActivity extends AppCompatActivity implements FirebaseAuth.Auth
     private void findviews() {
         nickText = findViewById(R.id.nickname);
         avatar = findViewById(R.id.avatar);
+        nickText.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                showNicknameDialog(nickText.getText().toString());
+            }
+        });
+        groupAvatars = findViewById(R.id.group_avatars);
+        groupAvatars.setVisibility(View.GONE);
+        avatar.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                groupAvatars.setVisibility(groupAvatars.getVisibility() == View.GONE ? View.VISIBLE : View.GONE);
+            }
+        });
+
+        findViewById(R.id.avatar_0).setOnClickListener(this);
+        findViewById(R.id.avatar_1).setOnClickListener(this);
+        findViewById(R.id.avatar_2).setOnClickListener(this);
+        findViewById(R.id.avatar_3).setOnClickListener(this);
+        findViewById(R.id.avatar_4).setOnClickListener(this);
+
+        FloatingActionButton fab = findViewById(R.id.fab);
+        fab.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                final EditText roomEdit = new EditText(MainActivity.this);
+                roomEdit.setText("Welcome");
+                new AlertDialog.Builder(MainActivity.this)
+                        .setTitle("Game Room")
+                        .setMessage("Please input room title")
+                        .setView(roomEdit)
+                        .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                GameRoom room = new GameRoom(roomEdit.getText().toString(), member);
+                                FirebaseDatabase.getInstance()
+                                        .getReference("rooms")
+                                        .push()
+                                        .setValue(room);
+                            }
+                        })
+                        .show();
+            }
+        });
     }
 
     @Override
@@ -108,6 +158,10 @@ public class MainActivity extends AppCompatActivity implements FirebaseAuth.Auth
                             }
                         });
             }
+            FirebaseDatabase.getInstance().getReference("users")
+                    .child(user.getUid())
+                    .child("uid")
+                    .setValue(user.getUid());
 
             FirebaseDatabase.getInstance()
                     .getReference("users")
@@ -115,13 +169,14 @@ public class MainActivity extends AppCompatActivity implements FirebaseAuth.Auth
                     .addValueEventListener(new ValueEventListener() {
                         @Override
                         public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
-                            Member member = dataSnapshot.getValue(Member.class);
+                            member = dataSnapshot.getValue(Member.class);
                             if (member != null) {
                                 if (member.nickname != null) {
                                     nickText.setText(member.nickname);
                                 } else {
-                                    showInputNicknameDialog(member.displayName);
+                                    showNicknameDialog(member.displayName);
                                 }
+                                avatar.setImageResource(avatarIds[member.avatar]);
                             }
                         }
 
@@ -155,7 +210,7 @@ public class MainActivity extends AppCompatActivity implements FirebaseAuth.Auth
         }
     }
 
-    private void showInputNicknameDialog(String displayName) {
+    private void showNicknameDialog(String displayName) {
         final EditText edNickname = new EditText(this);
         edNickname.setText(displayName);
         new AlertDialog.Builder(this)
@@ -173,5 +228,34 @@ public class MainActivity extends AppCompatActivity implements FirebaseAuth.Auth
                     }
                 })
                 .show();
+    }
+
+    @Override
+    public void onClick(View view) {
+        if (view instanceof ImageView) {
+            int selectedId = 0;
+            switch (view.getId()) {
+                case R.id.avatar_0:
+                    selectedId = 0;
+                    break;
+                case R.id.avatar_1:
+                    selectedId = 1;
+                    break;
+                case R.id.avatar_2:
+                    selectedId = 2;
+                    break;
+                case R.id.avatar_3:
+                    selectedId = 3;
+                    break;
+                case R.id.avatar_4:
+                    selectedId = 4;
+                    break;
+            }
+            groupAvatars.setVisibility(View.GONE);
+            FirebaseDatabase.getInstance().getReference("users")
+                    .child(auth.getUid())
+                    .child("avatar")
+                    .setValue(selectedId);
+        }
     }
 }
