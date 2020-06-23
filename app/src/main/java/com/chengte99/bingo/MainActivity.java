@@ -4,6 +4,8 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.constraintlayout.widget.Group;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import android.content.DialogInterface;
 import android.os.Bundle;
@@ -11,11 +13,14 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
 
 import com.firebase.ui.auth.AuthUI;
+import com.firebase.ui.database.FirebaseRecyclerAdapter;
+import com.firebase.ui.database.FirebaseRecyclerOptions;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
@@ -24,6 +29,7 @@ import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.Query;
 import com.google.firebase.database.ValueEventListener;
 
 import java.util.Arrays;
@@ -38,6 +44,7 @@ public class MainActivity extends AppCompatActivity implements FirebaseAuth.Auth
     private Group groupAvatars;
     int[] avatarIds = {R.drawable.avatar_0, R.drawable.avatar_1, R.drawable.avatar_2, R.drawable.avatar_3, R.drawable.avatar_4};
     private Member member;
+    private FirebaseRecyclerAdapter<GameRoom, RoomViewHolder> adapter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -95,6 +102,43 @@ public class MainActivity extends AppCompatActivity implements FirebaseAuth.Auth
                         .show();
             }
         });
+
+        RecyclerView recyclerView = findViewById(R.id.recycler);
+        recyclerView.setHasFixedSize(true);
+        recyclerView.setLayoutManager(new LinearLayoutManager(this));
+
+        Query query = FirebaseDatabase.getInstance().getReference("rooms")
+                .limitToLast(30);
+
+        FirebaseRecyclerOptions<GameRoom> options = new FirebaseRecyclerOptions.Builder<GameRoom>()
+                .setQuery(query, GameRoom.class)
+                .build();
+
+        adapter = new FirebaseRecyclerAdapter<GameRoom, RoomViewHolder>(options) {
+            @Override
+            protected void onBindViewHolder(@NonNull RoomViewHolder holder, int position, @NonNull GameRoom model) {
+                holder.roomAvatar.setImageResource(avatarIds[model.getInit().avatar]);
+                holder.roomTitle.setText(model.getTitle());
+            }
+
+            @NonNull
+            @Override
+            public RoomViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+                View view = getLayoutInflater().from(MainActivity.this).inflate(R.layout.room_row, parent, false);
+                return new RoomViewHolder(view);
+            }
+        };
+        recyclerView.setAdapter(adapter);
+    }
+
+    public class RoomViewHolder extends RecyclerView.ViewHolder {
+        ImageView roomAvatar;
+        TextView roomTitle;
+        public RoomViewHolder(@NonNull View itemView) {
+            super(itemView);
+            roomAvatar = itemView.findViewById(R.id.room_avatar);
+            roomTitle = itemView.findViewById(R.id.room_title);
+        }
     }
 
     @Override
@@ -102,6 +146,7 @@ public class MainActivity extends AppCompatActivity implements FirebaseAuth.Auth
         Log.d(TAG, "onStart: ");
         super.onStart();
         auth.addAuthStateListener(this);
+        adapter.startListening();
     }
 
     @Override
@@ -109,6 +154,7 @@ public class MainActivity extends AppCompatActivity implements FirebaseAuth.Auth
         Log.d(TAG, "onStop: ");
         super.onStop();
         auth.removeAuthStateListener(this);
+        adapter.stopListening();
     }
 
     @Override
