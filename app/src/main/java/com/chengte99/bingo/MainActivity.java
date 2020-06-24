@@ -1,6 +1,7 @@
 package com.chengte99.bingo;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.constraintlayout.widget.Group;
@@ -8,6 +9,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Menu;
@@ -28,6 +30,7 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.Query;
 import com.google.firebase.database.ValueEventListener;
@@ -96,9 +99,26 @@ public class MainActivity extends AppCompatActivity implements FirebaseAuth.Auth
                                 FirebaseDatabase.getInstance()
                                         .getReference("rooms")
                                         .push()
-                                        .setValue(room);
+                                        .setValue(room, new DatabaseReference.CompletionListener() {
+                                            @Override
+                                            public void onComplete(@Nullable DatabaseError error, @NonNull DatabaseReference ref) {
+                                                if (error == null) {
+                                                    String roomID = ref.getKey();
+                                                    FirebaseDatabase.getInstance().getReference("rooms")
+                                                            .child(roomID)
+                                                            .child("id")
+                                                            .setValue(roomID);
+
+                                                    Intent intent = new Intent(MainActivity.this, BingoActivity.class);
+                                                    intent.putExtra("ROOMID", roomID);
+                                                    intent.putExtra("IS_CREATOR", true);
+                                                    startActivity(intent);
+                                                }
+                                            }
+                                        });
                             }
                         })
+                        .setNeutralButton("Cancel", null)
                         .show();
             }
         });
@@ -116,9 +136,17 @@ public class MainActivity extends AppCompatActivity implements FirebaseAuth.Auth
 
         adapter = new FirebaseRecyclerAdapter<GameRoom, RoomViewHolder>(options) {
             @Override
-            protected void onBindViewHolder(@NonNull RoomViewHolder holder, int position, @NonNull GameRoom model) {
+            protected void onBindViewHolder(@NonNull RoomViewHolder holder, int position, @NonNull final GameRoom model) {
                 holder.roomAvatar.setImageResource(avatarIds[model.getInit().avatar]);
                 holder.roomTitle.setText(model.getTitle());
+                holder.itemView.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        Intent bingo = new Intent(MainActivity.this, BingoActivity.class);
+                        bingo.putExtra("ROOMID", model.getId());
+                        startActivity(bingo);
+                    }
+                });
             }
 
             @NonNull
