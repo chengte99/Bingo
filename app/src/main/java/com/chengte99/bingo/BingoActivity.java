@@ -16,8 +16,10 @@ import com.firebase.ui.common.ChangeEventType;
 import com.firebase.ui.database.FirebaseRecyclerAdapter;
 import com.firebase.ui.database.FirebaseRecyclerOptions;
 import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.Query;
+import com.google.firebase.database.ValueEventListener;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -25,7 +27,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class BingoActivity extends AppCompatActivity {
+public class BingoActivity extends AppCompatActivity implements View.OnClickListener {
     public static final int STATUS_INIT = 0;
     public static final int STATUS_CREATED = 1;
     public static final int STATUS_JOINED = 2;
@@ -41,6 +43,35 @@ public class BingoActivity extends AppCompatActivity {
     private List<NumberButton> buttons;
     private FirebaseRecyclerAdapter<Boolean, BingoViewHolder> adapter;
     private Map<Integer, Integer> numberMap;
+    boolean myTurn = false;
+    ValueEventListener statusListener = new ValueEventListener() {
+        @Override
+        public void onDataChange(@NonNull DataSnapshot snapshot) {
+            Log.d(TAG, "onDataChange: " + snapshot.getValue());
+            long status = (long) snapshot.getValue();
+            switch ((int) status) {
+                case STATUS_CREATED:
+                    info.setText("等待對手加入");
+                    break;
+                case STATUS_JOINED:
+                    info.setText("對手已加入，準備開始");
+                    FirebaseDatabase.getInstance().getReference("rooms")
+                            .child(roomid)
+                            .child("status")
+                            .setValue(STATUS_CREATOR_TURN);
+                    break;
+                case STATUS_CREATOR_TURN:
+                    setMyTurn(is_creator);
+                    break;
+            }
+        }
+
+        @Override
+        public void onCancelled(@NonNull DatabaseError error) {
+
+        }
+    };
+    private TextView info;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -99,7 +130,11 @@ public class BingoActivity extends AppCompatActivity {
         adapter = new FirebaseRecyclerAdapter<Boolean, BingoViewHolder>(options) {
             @Override
             protected void onBindViewHolder(@NonNull BingoViewHolder holder, int position, @NonNull Boolean model) {
+                Log.d(TAG, "onBindViewHolder: ");
                 holder.numberButton.setText(String.valueOf(buttons.get(position).getNumber()));
+                holder.numberButton.setNumber(buttons.get(position).getNumber());
+                holder.numberButton.setEnabled(!buttons.get(position).isPicked());
+                holder.numberButton.setOnClickListener(BingoActivity.this);
 //                holder.numberButton.setEnabled(!model);
             }
 
@@ -109,10 +144,11 @@ public class BingoActivity extends AppCompatActivity {
                 Log.d(TAG, "onChildChanged: " + type + "/" + snapshot.getKey() + "/" + snapshot.getValue());
                 if (type == ChangeEventType.CHANGED) {
                     int number = Integer.parseInt(snapshot.getKey());
-                    boolean is_picked = (boolean) snapshot.getValue();
+                    boolean isPicked = (boolean) snapshot.getValue();
                     int pos = numberMap.get(number);
+                    buttons.get(pos).setPicked(isPicked);
                     BingoViewHolder holder = (BingoViewHolder) recyclerView.findViewHolderForAdapterPosition(pos);
-                    holder.numberButton.setEnabled(!is_picked);
+                    holder.numberButton.setEnabled(!isPicked);
                 }
             }
 
@@ -127,8 +163,18 @@ public class BingoActivity extends AppCompatActivity {
     }
 
     private void findViews() {
-        TextView info = findViewById(R.id.info);
+        info = findViewById(R.id.info);
         recyclerView = findViewById(R.id.recycler);
+    }
+
+    @Override
+    public void onClick(View view) {
+        int number = ((NumberButton)view).getNumber();
+        FirebaseDatabase.getInstance().getReference("rooms")
+                .child(roomid)
+                .child("numbers")
+                .child(String.valueOf(number))
+                .setValue(true);
     }
 
     public class BingoViewHolder extends RecyclerView.ViewHolder {
@@ -143,11 +189,28 @@ public class BingoActivity extends AppCompatActivity {
     protected void onStart() {
         super.onStart();
         adapter.startListening();
+        FirebaseDatabase.getInstance().getReference("rooms")
+                .child(roomid)
+                .child("status")
+                .addValueEventListener(statusListener);
     }
 
     @Override
     protected void onStop() {
         super.onStop();
         adapter.stopListening();
+        FirebaseDatabase.getInstance().getReference("rooms")
+                .child(roomid)
+                .child("status")
+                .removeEventListener(statusListener);
+    }
+
+    public boolean isMyTurn() {
+        return myTurn;
+    }
+
+    public void setMyTurn(boolean myTurn) {
+        this.myTurn = myTurn;
+        info.setText(myTurn ? "請選號" : "等待對手選號");
     }
 }

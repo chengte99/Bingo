@@ -2,11 +2,10 @@ package com.chengte99.bingo;
 
 import android.content.Context;
 import android.util.AttributeSet;
-import android.widget.Button;
 
 public class NumberButton extends androidx.appcompat.widget.AppCompatButton {
     int number;
-    boolean is_picked;
+    boolean isPicked;
     int pos;
 
     public NumberButton(Context context) {
@@ -25,12 +24,12 @@ public class NumberButton extends androidx.appcompat.widget.AppCompatButton {
         this.number = number;
     }
 
-    public boolean isIs_picked() {
-        return is_picked;
+    public boolean isPicked() {
+        return isPicked;
     }
 
-    public void setIs_picked(boolean is_picked) {
-        this.is_picked = is_picked;
+    public void setPicked(boolean picked) {
+        this.isPicked = picked;
     }
 
     public int getPos() {
