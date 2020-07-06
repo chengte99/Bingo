@@ -1,10 +1,12 @@
 package com.chengte99.bingo;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
@@ -66,6 +68,30 @@ public class BingoActivity extends AppCompatActivity implements View.OnClickList
                 case STATUS_JOINER_TURN:
                     setMyTurn(!is_creator);
                     break;
+                case STATUS_CREATOR_BINGO:
+                    new AlertDialog.Builder(BingoActivity.this)
+                            .setTitle("Bingo")
+                            .setMessage(is_creator ? "你Bingo了！" : "對手Bingo了")
+                            .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                                @Override
+                                public void onClick(DialogInterface dialog, int which) {
+                                    endGame();
+                                }
+                            })
+                            .show();
+                    break;
+                case STATUS_JOINER_BINGO:
+                    new AlertDialog.Builder(BingoActivity.this)
+                            .setTitle("Bingo")
+                            .setMessage(!is_creator ? "你Bingo了！" : "對手Bingo了")
+                            .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                                @Override
+                                public void onClick(DialogInterface dialog, int which) {
+                                    endGame();
+                                }
+                            })
+                            .show();
+                    break;
             }
         }
 
@@ -74,6 +100,20 @@ public class BingoActivity extends AppCompatActivity implements View.OnClickList
 
         }
     };
+
+    private void endGame() {
+        FirebaseDatabase.getInstance().getReference("rooms")
+                .child(roomid)
+                .child("status")
+                .removeEventListener(statusListener);
+        if (is_creator) {
+            FirebaseDatabase.getInstance().getReference("rooms")
+                    .child(roomid)
+                    .removeValue();
+        }
+        finish();
+    }
+
     private TextView info;
 
     @Override
@@ -171,6 +211,12 @@ public class BingoActivity extends AppCompatActivity implements View.OnClickList
                         bingo += (sum == 5) ? 1 : 0;
                     }
                     Log.d(TAG, "onChildChanged: bingo: " + bingo);
+                    if (bingo > 0) {
+                        FirebaseDatabase.getInstance().getReference("rooms")
+                                .child(roomid)
+                                .child("status")
+                                .setValue(is_creator ? STATUS_CREATOR_BINGO : STATUS_JOINER_BINGO);
+                    }
                 }
             }
 
