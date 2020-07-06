@@ -63,6 +63,9 @@ public class BingoActivity extends AppCompatActivity implements View.OnClickList
                 case STATUS_CREATOR_TURN:
                     setMyTurn(is_creator);
                     break;
+                case STATUS_JOINER_TURN:
+                    setMyTurn(!is_creator);
+                    break;
             }
         }
 
@@ -146,9 +149,28 @@ public class BingoActivity extends AppCompatActivity implements View.OnClickList
                     int number = Integer.parseInt(snapshot.getKey());
                     boolean isPicked = (boolean) snapshot.getValue();
                     int pos = numberMap.get(number);
-                    buttons.get(pos).setPicked(isPicked);
+                    buttons.get(pos ).setPicked(isPicked);
                     BingoViewHolder holder = (BingoViewHolder) recyclerView.findViewHolderForAdapterPosition(pos);
                     holder.numberButton.setEnabled(!isPicked);
+                    // Bingo check
+                    int[] nums = new int[25];
+                    for (int i = 0; i < 25; i++) {
+                        nums[i] = (buttons.get(i).isPicked()) ? 1 : 0;
+                    }
+                    int bingo = 0;
+                    for (int i = 0; i < 5; i++) {
+                        int sum = 0;
+                        for (int j = 0; j < 5; j++) {
+                            sum += (nums[i * 5 + j]);
+                        }
+                        bingo += (sum == 5) ? 1 : 0;
+                        sum = 0;
+                        for (int j = 0; j < 5; j++) {
+                            sum += (nums[j * 5 + i]);
+                        }
+                        bingo += (sum == 5) ? 1 : 0;
+                    }
+                    Log.d(TAG, "onChildChanged: bingo: " + bingo);
                 }
             }
 
@@ -169,12 +191,18 @@ public class BingoActivity extends AppCompatActivity implements View.OnClickList
 
     @Override
     public void onClick(View view) {
-        int number = ((NumberButton)view).getNumber();
-        FirebaseDatabase.getInstance().getReference("rooms")
-                .child(roomid)
-                .child("numbers")
-                .child(String.valueOf(number))
-                .setValue(true);
+        if (myTurn) {
+            int number = ((NumberButton) view).getNumber();
+            FirebaseDatabase.getInstance().getReference("rooms")
+                    .child(roomid)
+                    .child("numbers")
+                    .child(String.valueOf(number))
+                    .setValue(true);
+            FirebaseDatabase.getInstance().getReference("rooms")
+                    .child(roomid)
+                    .child("status")
+                    .setValue(is_creator ? STATUS_JOINER_TURN : STATUS_CREATOR_TURN);
+        }
     }
 
     public class BingoViewHolder extends RecyclerView.ViewHolder {
